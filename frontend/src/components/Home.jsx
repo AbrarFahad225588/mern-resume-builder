@@ -1,5 +1,5 @@
 import { useNavigate, Link } from "react-router-dom";
-import { useResume } from "../contex/ResumeContex";
+import { useResume } from "../contex/resumeContext";
 import {
   FaCheckCircle,
   FaDownload,

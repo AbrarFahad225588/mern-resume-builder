@@ -1,7 +1,12 @@
 import express from 'express';
+import mongoose from 'mongoose';
 import { authMiddleware } from '../middleware/auth.js';
 import Resume from '../models/Resume.js';
 const router = express.Router();
+
+// A malformed id makes Mongoose throw a CastError, which the catch blocks below
+// would report as a 500. A bad id is a client mistake, so answer 404 instead.
+const isValidId = (id) => mongoose.Types.ObjectId.isValid(id);
 
 // Ownership and identity are decided by the auth middleware, never by the
 // client. Without stripping these, `...req.body` (which is spread AFTER
@@ -27,7 +32,10 @@ router.get('/', authMiddleware, async (req, res) => {
 
 // get single resume by id for the authenticated user
 router.get('/:id', authMiddleware, async (req, res) => {
-    try {   
+    try {
+        if (!isValidId(req.params.id)) {
+            return res.status(404).json({ message: 'Resume not found' });
+        }
         const resume = await Resume.findOne({ _id: req.params.id, user: req.user?._id });
         if (!resume) {
             return res.status(404).json({ message: 'Resume not found' });
@@ -59,6 +67,9 @@ router.post('/', authMiddleware, async (req, res) => {
 // update a resume by id for the authenticated user
 router.put('/:id', authMiddleware, async (req, res) => {
     try {
+        if (!isValidId(req.params.id)) {
+            return res.status(404).json({ message: 'Resume not found' });
+        }
         const updatedResume = await Resume.findOneAndUpdate(
             { _id: req.params.id, user: req.user?._id },
             { $set: sanitizeResumePayload(req.body) },
@@ -80,6 +91,9 @@ router.put('/:id', authMiddleware, async (req, res) => {
 // delete a resume by id for the authenticated user
 router.delete('/:id', authMiddleware, async (req, res) => {
     try {
+        if (!isValidId(req.params.id)) {
+            return res.status(404).json({ message: 'Resume not found' });
+        }
         const deletedResume = await Resume.findOneAndDelete({ _id: req.params.id, user: req.user?._id });
         if (!deletedResume) {
             return res.status(404).json({ message: 'Resume not found' });

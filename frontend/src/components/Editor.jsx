@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { toast } from "react-hot-toast";
 import { FaSave, FaArrowLeft, FaPalette } from "react-icons/fa";
-import { useResume } from "../contex/ResumeContex";
+import { useResume } from "../contex/resumeContext";
 import ResumeForm from "./editor/ResumeForm";
 import ResumePreview from "./editor/ResumePreview";
 import {

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useLocation, Link } from "react-router-dom";
-import { useResume } from "../contex/ResumeContex";
+import { useResume } from "../contex/resumeContext";
 import { FaSignInAlt, FaEnvelope, FaLock, FaEye, FaEyeSlash } from "react-icons/fa";
 
 const Login = () => {

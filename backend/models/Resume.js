@@ -112,17 +112,18 @@ const resumeSchema = new mongoose.Schema({
   },
 });
 
-resumeSchema.pre("save", function (next) {
+// These hooks must be async and take no `next` argument: Mongoose 9 removed
+// callback-style middleware, so a `next()` call throws "next is not a
+// function" and every save fails with a 500.
+resumeSchema.pre("save", async function () {
   this.updatedAt = Date.now();
-  next();
 });
 
 // `pre("save")` never fires for findOneAndUpdate, so edits made through the
 // update route would keep their original updatedAt and break the
 // "most recently edited first" ordering used by the resume list.
-resumeSchema.pre("findOneAndUpdate", function (next) {
+resumeSchema.pre("findOneAndUpdate", async function () {
   this.set({ updatedAt: Date.now() });
-  next();
 });
 
 const Resume = mongoose.model("Resume", resumeSchema);

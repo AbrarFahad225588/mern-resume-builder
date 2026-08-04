@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import { useResume } from "../contex/ResumeContex";
+import { useResume } from "../contex/resumeContext";
 // The app mounts react-hot-toast's <Toaster /> (see components/common/HotToast),
 // so toasts must come from the same library to actually be rendered.
 import { toast } from "react-hot-toast";

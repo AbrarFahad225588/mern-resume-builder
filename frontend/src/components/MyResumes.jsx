@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { useResume } from "../contex/ResumeContex";
+import { useResume } from "../contex/resumeContext";
 import { resolveTemplate } from "../utils/templates";
 import { FaFileAlt, FaPlus, FaTrash, FaEdit, FaPalette } from "react-icons/fa";
 

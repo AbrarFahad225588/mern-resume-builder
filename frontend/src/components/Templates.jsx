@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { useResume } from "../contex/ResumeContex";
+import { useResume } from "../contex/resumeContext";
 import { TEMPLATES } from "../utils/templates";
 import { FaPalette, FaStar } from "react-icons/fa";
 

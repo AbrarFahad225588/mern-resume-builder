@@ -1,15 +1,7 @@
-import {
-  createContext,
-  useCallback,
-  useContext,
-  useEffect,
-  useRef,
-  useState,
-} from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { authApi, resumeApi, templateApi } from "../services/api";
 import { toast } from "react-hot-toast";
-
-const ResumeContext = createContext();
+import { ResumeContext } from "./resumeContext";
 
 // Turns an axios failure into something a user can act on. Without this every
 // problem collapses into the same vague "Failed to ..." text, which hides the
@@ -23,8 +15,6 @@ const describeApiError = (error, fallback) => {
   }
   return error?.message || fallback;
 };
-
-export const useResume = () => useContext(ResumeContext);
 
 export const ResumeProvider = ({ children }) => {
   const [templates, setTemplates] = useState([]);
