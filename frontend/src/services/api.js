@@ -9,12 +9,25 @@ const api = axios.create({
     'Content-Type': 'application/json',
   },
 });
+
+// Attach the bearer token (when one exists) to every outgoing request.
+// Doing it here keeps components free of any mutation of the shared instance
+// and means the header survives a full page reload.
+api.interceptors.request.use((config) => {
+  const token = localStorage.getItem('token');
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+});
+
 // Auth api functions
+
 export const authApi = {
   register: (userData) => api.post('/auth/register', userData),
   login: (credentials) => api.post('/auth/login', credentials),
   logout: () => api.post('/auth/logout'),
-  getMe: () => api.get('/auth/me'),
+  getMe: () => api.get('/auth/me/'),
 };
 // resume api functions
 export const resumeApi = {

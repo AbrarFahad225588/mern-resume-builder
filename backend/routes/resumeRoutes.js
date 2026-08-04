@@ -2,10 +2,21 @@ import express from 'express';
 import { authMiddleware } from '../middleware/auth.js';
 import Resume from '../models/Resume.js';
 const router = express.Router();
+
+// Ownership and identity are decided by the auth middleware, never by the
+// client. Without stripping these, `...req.body` (which is spread AFTER
+// `user`) would let a caller assign a resume to somebody else's account, and
+// `$set` could rewrite `_id`.
+const sanitizeResumePayload = (body = {}) => {
+    const { user, _id, __v, createdAt, updatedAt, ...safe } = body;
+    return safe;
+};
 // get all resumes for the authenticated   user
 router.get('/', authMiddleware, async (req, res) => {
     try {
-        const resumes = (await Resume.find({ user: req.user?._id })).sort({ updatedAt: -1 });
+        // The sort must be applied to the Mongoose query, not to the resolved
+        // array: `[].sort({...})` throws because an object is not a comparator.
+        const resumes = await Resume.find({ user: req.user?._id }).sort({ updatedAt: -1 });
         res.json({ success: true, resumes,message: "Resumes fetched successfully" });
     }
     catch (error) {
@@ -33,8 +44,8 @@ router.get('/:id', authMiddleware, async (req, res) => {
 router.post('/', authMiddleware, async (req, res) => {
     try {
         const newResume = new Resume({
-            user: req.user?._id,
-            ...req.body
+            ...sanitizeResumePayload(req.body),
+            user: req.user?._id
         });
         const savedResume = await newResume.save();
         res.status(201).json({ success: true, resume: savedResume, message: 'Resume created successfully' });
@@ -50,8 +61,10 @@ router.put('/:id', authMiddleware, async (req, res) => {
     try {
         const updatedResume = await Resume.findOneAndUpdate(
             { _id: req.params.id, user: req.user?._id },
-            { $set: req.body },
-            { new: true }
+            { $set: sanitizeResumePayload(req.body) },
+            // `runValidators` keeps schema rules (e.g. enum/maxlength) enforced
+            // on updates; by default Mongoose skips them for findOneAndUpdate.
+            { new: true, runValidators: true }
         );
         if (!updatedResume) {
             return res.status(404).json({ message: 'Resume not found' });
