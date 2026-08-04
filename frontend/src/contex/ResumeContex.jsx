@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { authApi, resumeApi, templateApi } from "../services/api";
 import { toast } from "react-hot-toast";
 import { ResumeContext } from "./resumeContext";
@@ -35,6 +35,13 @@ export const ResumeProvider = ({ children }) => {
   useEffect(() => {
     isAuthenticatedRef.current = isAuthenticated;
   }, [isAuthenticated]);
+
+  // Same trick for the open resume, so `saveCurrentResume` and `deleteResume`
+  // can read it without taking a dependency on it.
+  const currentResumeRef = useRef(currentResume);
+  useEffect(() => {
+    currentResumeRef.current = currentResume;
+  }, [currentResume]);
 
   // The three callbacks the bootstrap effect depends on are memoised with
   // useCallback so the effect runs once instead of on every render. They are
@@ -98,108 +105,114 @@ export const ResumeProvider = ({ children }) => {
     }
   }, []);
 
-  const login = async (email, password) => {
-    setLoading(true);
-    try {
-      const response = await authApi.login({ email, password });
-      const { user: userData, token } = response.data;
-      // Mirrors register(): the request interceptor reads this token from
-      // localStorage. Without it a logged-in user relied solely on the cookie,
-      // so the Authorization header was missing after any reload.
-      if (token) {
-        localStorage.setItem("token", token);
+  const login = useCallback(
+    async (email, password) => {
+      setLoading(true);
+      try {
+        const response = await authApi.login({ email, password });
+        const { user: userData, token } = response.data;
+        // Mirrors register(): the request interceptor reads this token from
+        // localStorage. Without it a logged-in user relied solely on the
+        // cookie, so the Authorization header was missing after any reload.
+        if (token) {
+          localStorage.setItem("token", token);
+        }
+        setIsAuthenticated(true);
+        setUser(userData);
+        await fetchResumes(true);
+        await fetchTemplates();
+        toast.success(response.data?.message || "Login successful");
+        return userData;
+      } catch (error) {
+        setError(error);
+        toast.error(describeApiError(error, "Failed to login"));
+        return null;
+      } finally {
+        setLoading(false);
       }
-      setIsAuthenticated(true);
-      setUser(userData);
-      await fetchResumes(true);
-      await fetchTemplates();
-      toast.success(response.data?.message || "Login successful");
-      return userData;
-    } catch (error) {
-      setError(error);
-      toast.error(describeApiError(error, "Failed to login"));
-      return null;
-    } finally {
-      setLoading(false);
-    }
-  };
+    },
+    [fetchResumes, fetchTemplates],
+  );
 
-  const register = async (name, email, password) => {
-    setLoading(true);
-    try {
-      const response = await authApi.register({ name, email, password });
+  const register = useCallback(
+    async (name, email, password) => {
+      setLoading(true);
+      try {
+        const response = await authApi.register({ name, email, password });
 
-      // Extract data from response
-      const { user, token, message } = response.data;
+        // Extract data from response
+        const { user, token, message } = response.data;
 
-      // If token exists, store it. The api request interceptor reads it from
-      // localStorage and sets the Authorization header on every request.
-      if (token) {
-        localStorage.setItem("token", token);
-      }
-
-      // Update auth state
-      setIsAuthenticated(true);
-      setUser(user);
-      await fetchResumes(true);
-      await fetchTemplates();
-
-      toast.success(message || "Registration successful");
-
-      // Return consistent response object
-      return {
-        success: true,
-        message: message || "Registration successful",
-        user: user,
-        token: token,
-      };
-    } catch (error) {
-      console.error("Registration error:", error);
-
-      // Handle different error scenarios
-      let errorMessage = "Failed to register. Please try again.";
-      let fieldErrors = [];
-
-      if (error.response) {
-        // Server responded with error
-        const data = error.response.data;
-
-        if (data.errors && Array.isArray(data.errors)) {
-          errorMessage = data.errors[0]?.msg || errorMessage;
-          fieldErrors = data.errors;
-        } else if (data.message) {
-          errorMessage = data.message;
+        // If token exists, store it. The api request interceptor reads it from
+        // localStorage and sets the Authorization header on every request.
+        if (token) {
+          localStorage.setItem("token", token);
         }
 
-        // Handle specific status codes
-        if (error.response.status === 400) {
-          errorMessage = data.message || "Invalid registration data";
-        } else if (error.response.status === 409) {
-          errorMessage = "User already exists. Please login instead.";
+        // Update auth state
+        setIsAuthenticated(true);
+        setUser(user);
+        await fetchResumes(true);
+        await fetchTemplates();
+
+        toast.success(message || "Registration successful");
+
+        // Return consistent response object
+        return {
+          success: true,
+          message: message || "Registration successful",
+          user: user,
+          token: token,
+        };
+      } catch (error) {
+        console.error("Registration error:", error);
+
+        // Handle different error scenarios
+        let errorMessage = "Failed to register. Please try again.";
+        let fieldErrors = [];
+
+        if (error.response) {
+          // Server responded with error
+          const data = error.response.data;
+
+          if (data.errors && Array.isArray(data.errors)) {
+            errorMessage = data.errors[0]?.msg || errorMessage;
+            fieldErrors = data.errors;
+          } else if (data.message) {
+            errorMessage = data.message;
+          }
+
+          // Handle specific status codes
+          if (error.response.status === 400) {
+            errorMessage = data.message || "Invalid registration data";
+          } else if (error.response.status === 409) {
+            errorMessage = "User already exists. Please login instead.";
+          }
+        } else if (error.request) {
+          // Request made but no response
+          errorMessage = "No response from server. Please check your connection.";
+        } else {
+          // Something else happened
+          errorMessage = error.message || "An error occurred during registration";
         }
-      } else if (error.request) {
-        // Request made but no response
-        errorMessage = "No response from server. Please check your connection.";
-      } else {
-        // Something else happened
-        errorMessage = error.message || "An error occurred during registration";
+
+        toast.error(errorMessage);
+        setError(error);
+
+        // Return consistent error response
+        return {
+          success: false,
+          message: errorMessage,
+          errors: fieldErrors,
+          error: error,
+        };
+      } finally {
+        setLoading(false);
       }
-
-      toast.error(errorMessage);
-      setError(error);
-
-      // Return consistent error response
-      return {
-        success: false,
-        message: errorMessage,
-        errors: fieldErrors,
-        error: error,
-      };
-    } finally {
-      setLoading(false);
-    }
-  };
-  const logout = async () => {
+    },
+    [fetchResumes, fetchTemplates],
+  );
+  const logout = useCallback(async () => {
     try {
       await authApi.logout();
       localStorage.removeItem("token");
@@ -212,8 +225,9 @@ export const ResumeProvider = ({ children }) => {
       setError(error);
       toast.error("Failed to logout");
     }
-  };
-  const fetchTemplate = async (templateId) => {
+  }, []);
+
+  const fetchTemplate = useCallback(async (templateId) => {
     setLoading(true);
     try {
       const response = await templateApi.getTemplateById(templateId);
@@ -226,9 +240,12 @@ export const ResumeProvider = ({ children }) => {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  const fetchResume = async (id) => {
+  // Must stay memoised: the editor loads a resume from an effect that lists
+  // this function as a dependency. An unstable identity there re-triggers the
+  // effect on every render and the editor never leaves its loading state.
+  const fetchResume = useCallback(async (id) => {
     setLoading(true);
     try {
       const response = await resumeApi.getResumeById(id);
@@ -236,14 +253,14 @@ export const ResumeProvider = ({ children }) => {
       return response.data.resume || [];
     } catch (error) {
       setError(error);
-      toast.error("Failed to fetch resume");
+      toast.error(describeApiError(error, "Failed to fetch resume"));
       return [];
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  const createResume = async (resumeData) => {
+  const createResume = useCallback(async (resumeData) => {
     setLoading(true);
     try {
       const response = await resumeApi.createResume(resumeData);
@@ -254,13 +271,14 @@ export const ResumeProvider = ({ children }) => {
       return response.data.resume || [];
     } catch (error) {
       setError(error);
-      toast.error("Failed to create resume");
+      toast.error(describeApiError(error, "Failed to create resume"));
       return [];
     } finally {
       setLoading(false);
     }
-  };
-  const updateResume = async (id, resumeData) => {
+  }, []);
+
+  const updateResume = useCallback(async (id, resumeData) => {
     setLoading(true);
     try {
       const response = await resumeApi.updateResume(id, resumeData);
@@ -274,13 +292,14 @@ export const ResumeProvider = ({ children }) => {
       return response.data.resume || [];
     } catch (error) {
       setError(error);
-      toast.error("Failed to update resume");
+      toast.error(describeApiError(error, "Failed to update resume"));
       return [];
     } finally {
       setLoading(false);
     }
-  };
-  const deleteResume = async (id) => {
+  }, []);
+
+  const deleteResume = useCallback(async (id) => {
     if (!window.confirm("Are you sure you want to delete this resume?")) {
       return;
     }
@@ -290,28 +309,27 @@ export const ResumeProvider = ({ children }) => {
       setResumes((prevResumes) =>
         prevResumes.filter((resume) => resume._id !== id),
       );
-      if (currentResume && currentResume._id === id) {
-        setCurrentResume(null);
-      }
+      // Functional form keeps this callback free of a `currentResume` dep.
+      setCurrentResume((cur) => (cur && cur._id === id ? null : cur));
       toast.success("Resume deleted successfully");
     } catch (error) {
       setError(error);
-      toast.error("Failed to delete resume");
+      toast.error(describeApiError(error, "Failed to delete resume"));
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  const saveCurrentResume = async () => {
-    if (!currentResume) {
+  const saveCurrentResume = useCallback(async () => {
+    const draft = currentResumeRef.current;
+    if (!draft) {
       return null;
     }
-    if (currentResume._id) {
-      return await updateResume(currentResume._id, currentResume);
-    } else {
-      return await createResume(currentResume);
+    if (draft._id) {
+      return await updateResume(draft._id, draft);
     }
-  };
+    return await createResume(draft);
+  }, [createResume, updateResume]);
   useEffect(() => {
     const checkAuth = async () => {
       try {
@@ -339,42 +357,70 @@ export const ResumeProvider = ({ children }) => {
 
     checkAuth();
   }, [getCurrentUser, fetchResumes, fetchTemplates]);
-  // };
+
+  // Memoised so the value only changes when actual state does. A fresh object
+  // literal here would re-render every consumer on each provider render, and
+  // any consumer effect depending on one of these functions would re-run.
+  const value = useMemo(
+    () => ({
+      isAuthenticated,
+      user,
+      resumes,
+      currentResume,
+      templates,
+      currentTemplate,
+      loading,
+      error,
+      authchecked,
+      setCurrentResume,
+      setCurrentTemplate,
+      setTemplates,
+      setResumes,
+      setUser,
+      setIsAuthenticated,
+      setLoading,
+      setError,
+      setAuthChecked,
+      register,
+      login,
+      logout,
+      getCurrentUser,
+      fetchTemplates,
+      fetchTemplate,
+      fetchResumes,
+      fetchResume,
+      createResume,
+      updateResume,
+      deleteResume,
+      saveCurrentResume,
+    }),
+    [
+      isAuthenticated,
+      user,
+      resumes,
+      currentResume,
+      templates,
+      currentTemplate,
+      loading,
+      error,
+      authchecked,
+      register,
+      login,
+      logout,
+      getCurrentUser,
+      fetchTemplates,
+      fetchTemplate,
+      fetchResumes,
+      fetchResume,
+      createResume,
+      updateResume,
+      deleteResume,
+      saveCurrentResume,
+    ],
+  );
+
   return (
-    <ResumeContext.Provider
-      value={{
-        isAuthenticated,
-        user,
-        resumes,
-        currentResume,
-        templates,
-        currentTemplate,
-        loading,
-        error,
-        authchecked,
-        setCurrentResume,
-        setCurrentTemplate,
-        setTemplates,
-        setResumes,
-        setUser,
-        setIsAuthenticated,
-        setLoading,
-        setError,
-        setAuthChecked,
-        register,
-        login,
-        logout,
-        getCurrentUser,
-        fetchTemplates,
-        fetchTemplate,
-        fetchResumes,
-        fetchResume,
-        createResume,
-        updateResume,
-        deleteResume,
-        saveCurrentResume,
-      }}
-    >
+    <ResumeContext.Provider value={value}>
       {children}
     </ResumeContext.Provider>
   );

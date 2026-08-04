@@ -1,4 +1,4 @@
-import { memo, useState } from "react";
+import { memo, useCallback, useState } from "react";
 import {
   FaUser,
   FaAlignLeft,
@@ -28,9 +28,18 @@ const ResumeForm = memo(function ResumeForm({
   onRowChange,
   onAddRow,
   onRemoveRow,
+  onMoveRow,
 }) {
   const [open, setOpen] = useState({ personal: true, summary: true, experiences: true });
   const toggle = (key) => setOpen((prev) => ({ ...prev, [key]: !prev[key] }));
+
+  // Which markdown fields are currently showing their rendered preview. Keyed
+  // by field path (e.g. "experiences.2.summary") so each row toggles on its
+  // own, and kept local because it is transient UI, not resume data.
+  const [previews, setPreviews] = useState({});
+  const togglePreview = useCallback((key) => {
+    setPreviews((prev) => ({ ...prev, [key]: !prev[key] }));
+  }, []);
 
   return (
     <div className="space-y-4">
@@ -91,6 +100,9 @@ const ResumeForm = memo(function ResumeForm({
           value={resume.summary}
           onChange={(v) => onFieldChange("summary", v)}
           rows={4}
+          markdown
+          isPreview={previews.summary}
+          onTogglePreview={() => togglePreview("summary")}
           placeholder="Two or three sentences describing your experience and strengths."
         />
       </SectionCard>
@@ -106,7 +118,13 @@ const ResumeForm = memo(function ResumeForm({
           <EmptyHint>No experience yet — use Add to create your first role.</EmptyHint>
         ) : (
           resume.experiences.map((item, index) => (
-            <RepeatableRow key={index} index={index} onRemove={(i) => onRemoveRow("experiences", i)}>
+            <RepeatableRow
+              key={index}
+              index={index}
+              total={resume.experiences.length}
+              onRemove={(i) => onRemoveRow("experiences", i)}
+              onMove={(from, to) => onMoveRow("experiences", from, to)}
+            >
               <div className="grid gap-3 sm:grid-cols-2">
                 <Field
                   label="Company"
@@ -130,9 +148,12 @@ const ResumeForm = memo(function ResumeForm({
               <Field
                 label="Summary"
                 rows={3}
+                markdown
+                isPreview={previews[`experiences.${index}.summary`]}
+                onTogglePreview={() => togglePreview(`experiences.${index}.summary`)}
                 value={item.summary}
                 onChange={(v) => onRowChange("experiences", index, "summary", v)}
-                placeholder="What you owned and what changed because of it."
+                placeholder={"- Led X, cutting Y by **30%**\n- Shipped Z to 10k users"}
               />
             </RepeatableRow>
           ))
@@ -150,7 +171,13 @@ const ResumeForm = memo(function ResumeForm({
           <EmptyHint>No education entries yet.</EmptyHint>
         ) : (
           resume.education.map((item, index) => (
-            <RepeatableRow key={index} index={index} onRemove={(i) => onRemoveRow("education", i)}>
+            <RepeatableRow
+              key={index}
+              index={index}
+              total={resume.education.length}
+              onRemove={(i) => onRemoveRow("education", i)}
+              onMove={(from, to) => onMoveRow("education", from, to)}
+            >
               <Field
                 label="School"
                 value={item.school}
@@ -204,7 +231,13 @@ const ResumeForm = memo(function ResumeForm({
           <EmptyHint>No projects yet.</EmptyHint>
         ) : (
           resume.projects.map((item, index) => (
-            <RepeatableRow key={index} index={index} onRemove={(i) => onRemoveRow("projects", i)}>
+            <RepeatableRow
+              key={index}
+              index={index}
+              total={resume.projects.length}
+              onRemove={(i) => onRemoveRow("projects", i)}
+              onMove={(from, to) => onMoveRow("projects", from, to)}
+            >
               <div className="grid gap-3 sm:grid-cols-2">
                 <Field
                   label="Title"
@@ -222,6 +255,9 @@ const ResumeForm = memo(function ResumeForm({
               <Field
                 label="Details"
                 rows={3}
+                markdown
+                isPreview={previews[`projects.${index}.details`]}
+                onTogglePreview={() => togglePreview(`projects.${index}.details`)}
                 value={item.details}
                 onChange={(v) => onRowChange("projects", index, "details", v)}
                 placeholder="What it does and your role in it."
@@ -245,7 +281,9 @@ const ResumeForm = memo(function ResumeForm({
             <RepeatableRow
               key={index}
               index={index}
+              total={resume.certifications.length}
               onRemove={(i) => onRemoveRow("certifications", i)}
+              onMove={(from, to) => onMoveRow("certifications", from, to)}
             >
               <Field
                 label="Name"
@@ -283,7 +321,13 @@ const ResumeForm = memo(function ResumeForm({
           <EmptyHint>No languages yet.</EmptyHint>
         ) : (
           resume.languages.map((item, index) => (
-            <RepeatableRow key={index} index={index} onRemove={(i) => onRemoveRow("languages", i)}>
+            <RepeatableRow
+              key={index}
+              index={index}
+              total={resume.languages.length}
+              onRemove={(i) => onRemoveRow("languages", i)}
+              onMove={(from, to) => onMoveRow("languages", from, to)}
+            >
               <div className="grid gap-3 sm:grid-cols-2">
                 <Field
                   label="Language"
@@ -317,7 +361,9 @@ const ResumeForm = memo(function ResumeForm({
             <RepeatableRow
               key={index}
               index={index}
+              total={resume.customSections.length}
               onRemove={(i) => onRemoveRow("customSections", i)}
+              onMove={(from, to) => onMoveRow("customSections", from, to)}
             >
               <Field
                 label="Section title"
@@ -328,6 +374,9 @@ const ResumeForm = memo(function ResumeForm({
               <Field
                 label="Details"
                 rows={3}
+                markdown
+                isPreview={previews[`customSections.${index}.details`]}
+                onTogglePreview={() => togglePreview(`customSections.${index}.details`)}
                 value={item.details}
                 onChange={(v) => onRowChange("customSections", index, "details", v)}
                 placeholder="Employee of the year, 2023"

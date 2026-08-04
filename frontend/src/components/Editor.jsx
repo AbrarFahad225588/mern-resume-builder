@@ -127,6 +127,21 @@ const EditorContent = ({ id, templateParam, isNew }) => {
     }));
   }, []);
 
+  // Moves one row to a new position. Splice order matters: remove first, then
+  // insert, so dragging downwards does not land one slot short.
+  const handleMoveRow = useCallback((section, from, to) => {
+    setResume((prev) => {
+      const rows = prev[section];
+      if (from === to || from < 0 || to < 0 || from >= rows.length || to >= rows.length) {
+        return prev;
+      }
+      const next = [...rows];
+      const [moved] = next.splice(from, 1);
+      next.splice(to, 0, moved);
+      return { ...prev, [section]: next };
+    });
+  }, []);
+
   // Switching templates only ever touches templateId — content is untouched.
   const handleTemplateChange = useCallback((nextTemplateId) => {
     setResume((prev) => ({ ...prev, templateId: nextTemplateId }));
@@ -218,6 +233,7 @@ const EditorContent = ({ id, templateParam, isNew }) => {
             onRowChange={handleRowChange}
             onAddRow={handleAddRow}
             onRemoveRow={handleRemoveRow}
+            onMoveRow={handleMoveRow}
           />
         </div>
 

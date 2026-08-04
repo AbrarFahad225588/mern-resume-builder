@@ -1,5 +1,6 @@
 import { memo } from "react";
 import { parseSkills } from "../../utils/resume";
+import Markdown from "./Markdown";
 
 // A section only appears once it has content, so an untouched resume stays
 // clean instead of showing a wall of empty headings.
@@ -50,8 +51,10 @@ const ResumePreview = memo(function ResumePreview({ resume, template }) {
       </header>
 
       <div className="p-8 text-gray-700">
+        {/* The long-form fields render markdown so bullet lists and emphasis
+            typed in the editor appear the same way on the finished resume. */}
         <Block title="Summary" headingClass={s.heading} show={hasText(resume.summary)}>
-          <p className="text-sm leading-relaxed whitespace-pre-line">{resume.summary}</p>
+          <Markdown>{resume.summary}</Markdown>
         </Block>
 
         <Block title="Experience" headingClass={s.heading} show={experiences.length > 0}>
@@ -66,7 +69,7 @@ const ResumePreview = memo(function ResumePreview({ resume, template }) {
                 <span className="text-xs text-gray-500">{item.duration}</span>
               </div>
               {hasText(item.summary) && (
-                <p className="mt-1 text-sm leading-relaxed whitespace-pre-line">{item.summary}</p>
+                <Markdown className="mt-1">{item.summary}</Markdown>
               )}
             </div>
           ))}
@@ -102,7 +105,7 @@ const ResumePreview = memo(function ResumePreview({ resume, template }) {
                 <span className="text-xs text-gray-500">{item.tech}</span>
               </div>
               {hasText(item.details) && (
-                <p className="mt-1 text-sm leading-relaxed whitespace-pre-line">{item.details}</p>
+                <Markdown className="mt-1">{item.details}</Markdown>
               )}
             </div>
           ))}
@@ -138,7 +141,7 @@ const ResumePreview = memo(function ResumePreview({ resume, template }) {
             headingClass={s.heading}
             show={hasText(item.title) || hasText(item.details)}
           >
-            <p className="text-sm leading-relaxed whitespace-pre-line">{item.details}</p>
+            <Markdown>{item.details}</Markdown>
           </Block>
         ))}
       </div>
