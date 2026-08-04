@@ -1,54 +1,39 @@
-import mongoose from "mongoose";
-import "dotenv/config";
-import Template from "../models/Template.js";
 import { templateData } from "../data/templatesData.js";
-import { connectDb } from "../db/connectDb.js";
+import { assertConnection, closePool } from "../db/pool.js";
+import { runMigrations } from "../db/migrate.js";
+import * as templateService from "../modules/template/template.service.js";
 
+/**
+ * Seeds the template catalogue from data/templatesData.js.
+ *
+ *   npm run seed
+ *
+ * The script goes through the service layer rather than issuing its own SQL,
+ * so seeded rows pass exactly the same validation as anything written through
+ * the API — a malformed template cannot enter by the back door.
+ */
 const seedTemplates = async () => {
   try {
-    // 1. Connect (connectDb validates MONGO_URI and handles the DNS SRV fallback)
-    await connectDb();
+    await assertConnection();
+    // The schema may not exist yet on a fresh checkout where the server has
+    // never been started.
+    await runMigrations();
 
-    // 3. Check if --clear flag is used
-    const shouldClear = process.argv.includes('--clear');
-    if (shouldClear) {
-      const deleted = await Template.deleteMany();
-      console.log(`🗑️ Cleared ${deleted.deletedCount} existing templates`);
-    }
-
-    // 4. Check if data exists
     if (templateData.length === 0) {
-      console.warn("⚠️ No template data found to seed");
+      console.warn("No template data found to seed");
       return;
     }
 
-    // 5. Upsert with bulk operation (preserves existing)
-    const operations = templateData.map(template => ({
-      updateOne: {
-        filter: { id: template.id },
-        update: { $set: template },
-        upsert: true,
-      }
-    }));
-
-    const result = await Template.bulkWrite(operations);
-    
-    console.log(`✅ Successfully seeded templates:`);
-    console.log(`   📝 Inserted: ${result.upsertedCount} new`);
-    console.log(`   🔄 Updated: ${result.modifiedCount} existing`);
-    console.log(`   📊 Total: ${templateData.length} templates`);
-
+    const { count } = await templateService.seed(templateData);
+    console.log(`Seeded ${count} templates`);
   } catch (error) {
-    console.error("❌ Error seeding templates:", error.message);
-    if (error.code === 11000) {
-      console.error("   ⚠️ Duplicate key error - check template IDs");
-    }
-    process.exit(1);
+    console.error("Error seeding templates:", error.message);
+    process.exitCode = 1;
   } finally {
-    await mongoose.disconnect();
-    console.log("🔌 Disconnected from MongoDB");
+    // The pool holds the event loop open; without this the script hangs after
+    // printing its result.
+    await closePool();
   }
 };
 
-// Run the script
 seedTemplates();
