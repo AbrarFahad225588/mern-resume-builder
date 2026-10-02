@@ -160,3 +160,12 @@ CREATE TABLE IF NOT EXISTS templates (
   KEY idx_templates_category_active_pop (category, is_active, popularity DESC),
   KEY idx_templates_active (is_active)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+# job circular
+  
+
+#  requirement 
+
+
+# lagings of skills 
+
