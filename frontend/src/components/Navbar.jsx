@@ -24,10 +24,10 @@ const Navbar = () => {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
         <Link to="/" className="flex items-center gap-3 group">
           <div className="w-10 h-10 bg-linear-to-br from-blue-600 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg">
-            <span className="text-white font-black text-xl">R</span>
+            <span className="text-white font-black text-xl">RP</span>
           </div>
           <span className="text-xl font-black text-slate-800 tracking-tight">
-            Resume<span className="text-blue-600">Forge</span>
+            Resume<span className="text-blue-600">Pilot</span>
           </span>
         </Link>
         <div className="flex items-center gap-1 md:gap-2">

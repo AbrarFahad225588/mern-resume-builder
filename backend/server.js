@@ -1,51 +1,57 @@
-import  express from 'express';
-import  cookieParser from 'cookie-parser';
-import  bodyParser from 'body-parser';
-import cors from 'cors';
-import path from 'node:path';
-import dotenv from 'dotenv/config';
-import templatesRoutes from './routes/templatesRoutes.js';
-import resumeRoutes from './routes/resumeRoutes.js';
-import userRoutes from './routes/userRoutes.js';
-import {connectDb }from  './db/connectDb.js';
+import { createApp } from "./app.js";
+import { config } from "./config/env.js";
+import { assertConnection, closePool } from "./db/pool.js";
+import { runMigrations } from "./db/migrate.js";
 
-const app = express();
-app.use(cors({
-  origin: 'http://localhost:5173', // Replace with your frontend URL
-  credentials: true, // Allow cookies to be sent
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
-}));app.use(cookieParser());
-app.use(bodyParser.json());
-app.use(express.json());
-app.use(bodyParser.urlencoded({ extended: true }));
-
-// Static assets: public/templates/<id>.png is served at /templates/<id>.png,
-// matching the `previewImage` paths stored on each template.
-app.use(express.static(path.join(import.meta.dirname, 'public')));
-
-app.use('/api/templates', templatesRoutes);
-app.use('/api/resumes', resumeRoutes);
-app.use('/api/auth', userRoutes);
-
-
-const port = process.env.PORT || 5000;
-
-app.get('/', (req, res) => {
-  res.send('Hello World!');
-});
-
-// The database connection must be established *before* the server starts
-// accepting traffic. Listening first leaves a window where routes run while
-// Mongoose is still connecting, so every query sits in the buffer until it
-// times out and the route answers 500 (e.g. "Failed to fetch templates").
+/**
+ * Process entry point: connect, migrate, then listen.
+ *
+ * The database must be reachable *before* the server accepts traffic.
+ * Listening first leaves a window where routes run against a dead pool and
+ * every request answers 500 (e.g. "Failed to fetch templates").
+ */
 const startServer = async () => {
-  await connectDb();
+  try {
+    await assertConnection();
+    console.log(`Connected to MySQL database "${config.db.database}"`);
 
-  app.listen(port, () => {
-    console.log(`Example app listening on port ${port}`);
-    console.log(`Server is running on http://localhost:${port}`);
+    const applied = await runMigrations();
+    console.log(`Schema verified (${applied} statements)`);
+  } catch (error) {
+    // A misconfigured database is not something the app can recover from, and
+    // a half-running server would only produce confusing 500s. Fail loudly.
+    console.error("Failed to initialise the database:", error.message);
+    if (error.code === "ER_ACCESS_DENIED_ERROR") {
+      console.error("Check DB_USER / DB_PASSWORD in backend/.env");
+    }
+    if (error.code === "ER_BAD_DB_ERROR") {
+      console.error(
+        "Database missing. Run: mysql -u root -p < backend/db/bootstrap.sql",
+      );
+    }
+    if (error.code === "ECONNREFUSED") {
+      console.error(`No MySQL server at ${config.db.host}:${config.db.port}`);
+    }
+    process.exit(1);
+  }
+
+  const app = createApp();
+  const server = app.listen(config.port, () => {
+    console.log(`Server is running on http://localhost:${config.port}`);
   });
+
+  // Without this the pool keeps its sockets open and the process ignores
+  // Ctrl-C / container stop signals until it is force-killed.
+  const shutdown = async (signal) => {
+    console.log(`\n${signal} received, shutting down...`);
+    server.close(async () => {
+      await closePool();
+      process.exit(0);
+    });
+  };
+
+  process.on("SIGINT", () => shutdown("SIGINT"));
+  process.on("SIGTERM", () => shutdown("SIGTERM"));
 };
 
 startServer();
