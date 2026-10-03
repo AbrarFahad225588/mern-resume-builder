@@ -56,6 +56,19 @@ export const updateForUser = async (id, userId, body) => {
   return updated;
 };
 
+export const uploadPictureForUser = async (id, userId, file) => {
+  if (!isPlausibleId(id)) {
+    throw AppError.notFound("Resume not found");
+  }
+  // Build a public URL path relative to the static root: /uploads/<filename>
+  const pictureUrl = `/uploads/${file.filename}`;
+  const updated = await resumeRepository.updatePicture(id, userId, pictureUrl);
+  if (!updated) {
+    throw AppError.notFound("Resume not found");
+  }
+  return updated;
+};
+
 export const deleteForUser = async (id, userId) => {
   if (!isPlausibleId(id)) {
     throw AppError.notFound("Resume not found");

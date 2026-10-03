@@ -1,6 +1,7 @@
-import { memo, useCallback, useState } from "react";
+import { memo, useCallback, useRef, useState } from "react";
 import {
   FaUser,
+  FaAddressCard,
   FaAlignLeft,
   FaBriefcase,
   FaGraduationCap,
@@ -9,6 +10,8 @@ import {
   FaCertificate,
   FaLanguage,
   FaLayerGroup,
+  FaCamera,
+  FaTrash,
 } from "react-icons/fa";
 import Field from "./Field";
 import SectionCard, { EmptyHint, RepeatableRow } from "./SectionCard";
@@ -16,39 +19,101 @@ import SectionCard, { EmptyHint, RepeatableRow } from "./SectionCard";
 /**
  * Every editable section of the resume.
  *
- * The component is deliberately controlled and stateless with respect to the
- * resume itself: it renders `resume` and reports changes upward. Only the
- * open/closed accordion state is local, because it is pure UI and must not end
- * up being persisted with the document.
+ * Deliberately controlled and stateless with respect to the resume itself:
+ * it renders `resume` and reports changes upward via callbacks.
+ * Only accordion open/closed state and markdown preview toggles are local.
  */
 const ResumeForm = memo(function ResumeForm({
   resume,
   onFieldChange,
   onPersonalInfoChange,
+  onContactChange,
+  onPictureUpload,
   onRowChange,
   onAddRow,
   onRemoveRow,
   onMoveRow,
 }) {
-  const [open, setOpen] = useState({ personal: true, summary: true, experiences: true });
+  const [open, setOpen] = useState({
+    personal: true,
+    contact: true,
+    summary: true,
+    experiences: true,
+  });
   const toggle = (key) => setOpen((prev) => ({ ...prev, [key]: !prev[key] }));
 
-  // Which markdown fields are currently showing their rendered preview. Keyed
-  // by field path (e.g. "experiences.2.summary") so each row toggles on its
-  // own, and kept local because it is transient UI, not resume data.
   const [previews, setPreviews] = useState({});
   const togglePreview = useCallback((key) => {
     setPreviews((prev) => ({ ...prev, [key]: !prev[key] }));
   }, []);
 
+  // Picture upload — hidden file input triggered by the visible button
+  const pictureInputRef = useRef(null);
+  const handlePictureChange = (e) => {
+    const file = e.target.files?.[0];
+    if (file) onPictureUpload(file);
+    // Reset so the same file can be re-selected after removal
+    e.target.value = "";
+  };
+
+  const pictureUrl = resume.pictureUrl
+    ? `http://localhost:3000${resume.pictureUrl}`
+    : null;
+
   return (
     <div className="space-y-4">
+
+      {/* ── Personal Information ─────────────────────────────────────── */}
       <SectionCard
         title="Personal Information"
         icon={<FaUser className="text-blue-600" />}
         isOpen={open.personal}
         onToggle={() => toggle("personal")}
       >
+        {/* Picture upload */}
+        <div className="flex items-center gap-4">
+          <div className="relative shrink-0">
+            {pictureUrl ? (
+              <img
+                src={pictureUrl}
+                alt="Profile"
+                className="h-20 w-20 rounded-full object-cover ring-2 ring-blue-200"
+              />
+            ) : (
+              <div className="flex h-20 w-20 items-center justify-center rounded-full bg-slate-100 ring-2 ring-slate-200">
+                <FaCamera className="h-7 w-7 text-slate-400" />
+              </div>
+            )}
+            {pictureUrl && (
+              <button
+                type="button"
+                onClick={() => onFieldChange("pictureUrl", null)}
+                className="absolute -right-1 -top-1 rounded-full bg-red-500 p-1 text-white hover:bg-red-600"
+                title="Remove picture"
+              >
+                <FaTrash className="h-2.5 w-2.5" />
+              </button>
+            )}
+          </div>
+          <div className="flex flex-col gap-1">
+            <button
+              type="button"
+              onClick={() => pictureInputRef.current?.click()}
+              className="rounded-full border border-blue-300 px-4 py-1.5 text-xs font-semibold text-blue-700 hover:bg-blue-50"
+            >
+              {pictureUrl ? "Change photo" : "Upload photo"}
+            </button>
+            <p className="text-xs text-slate-400">JPEG, PNG, WebP — max 5 MB</p>
+            <input
+              ref={pictureInputRef}
+              type="file"
+              accept="image/jpeg,image/png,image/webp,image/gif"
+              className="hidden"
+              onChange={handlePictureChange}
+            />
+          </div>
+        </div>
+
         <div className="grid gap-3 sm:grid-cols-2">
           <Field
             label="Full name"
@@ -62,34 +127,77 @@ const ResumeForm = memo(function ResumeForm({
             onChange={(v) => onPersonalInfoChange("role", v)}
             placeholder="Senior Product Designer"
           />
+        </div>
+        <Field
+          label="About"
+          value={resume.personalInfo.about}
+          onChange={(v) => onPersonalInfoChange("about", v)}
+          rows={3}
+          placeholder="Short bio shown at the top of the resume."
+        />
+      </SectionCard>
+
+      {/* ── Contact Information ──────────────────────────────────────── */}
+      <SectionCard
+        title="Contact Information"
+        icon={<FaAddressCard className="text-blue-600" />}
+        isOpen={open.contact}
+        onToggle={() => toggle("contact")}
+      >
+        <div className="grid gap-3 sm:grid-cols-2">
           <Field
             label="Email"
             type="email"
-            value={resume.personalInfo.email}
-            onChange={(v) => onPersonalInfoChange("email", v)}
+            value={resume.contact.email}
+            onChange={(v) => onContactChange("email", v)}
             placeholder="jane@example.com"
           />
           <Field
             label="Phone"
-            value={resume.personalInfo.phone}
-            onChange={(v) => onPersonalInfoChange("phone", v)}
-            placeholder="+86 138 0000 0000"
+            value={resume.contact.phone}
+            onChange={(v) => onContactChange("phone", v)}
+            placeholder="+1 555 000 0000"
           />
           <Field
             label="Location"
-            value={resume.personalInfo.location}
-            onChange={(v) => onPersonalInfoChange("location", v)}
-            placeholder="Shanghai, China"
+            value={resume.contact.location}
+            onChange={(v) => onContactChange("location", v)}
+            placeholder="New York, USA"
+          />
+          <Field
+            label="Address"
+            value={resume.contact.address}
+            onChange={(v) => onContactChange("address", v)}
+            placeholder="123 Main St"
           />
           <Field
             label="Website"
-            value={resume.personalInfo.website}
-            onChange={(v) => onPersonalInfoChange("website", v)}
+            value={resume.contact.website}
+            onChange={(v) => onContactChange("website", v)}
+            placeholder="janedoe.dev"
+          />
+          <Field
+            label="LinkedIn"
+            value={resume.contact.linkedin}
+            onChange={(v) => onContactChange("linkedin", v)}
             placeholder="linkedin.com/in/jane"
+          />
+          <Field
+            label="GitHub"
+            value={resume.contact.github}
+            onChange={(v) => onContactChange("github", v)}
+            placeholder="github.com/jane"
+          />
+          <Field
+            label="Twitter / X"
+            value={resume.contact.twitter}
+            onChange={(v) => onContactChange("twitter", v)}
+            placeholder="@janedoe"
           />
         </div>
       </SectionCard>
 
+      {/* ── Professional Summary ─────────────────────────────────────── */}
       <SectionCard
         title="Professional Summary"
         icon={<FaAlignLeft className="text-blue-600" />}
@@ -107,6 +215,7 @@ const ResumeForm = memo(function ResumeForm({
         />
       </SectionCard>
 
+      {/* ── Experience ───────────────────────────────────────────────── */}
       <SectionCard
         title="Experience"
         icon={<FaBriefcase className="text-blue-600" />}
@@ -160,6 +269,7 @@ const ResumeForm = memo(function ResumeForm({
         )}
       </SectionCard>
 
+      {/* ── Education ────────────────────────────────────────────────── */}
       <SectionCard
         title="Education"
         icon={<FaGraduationCap className="text-blue-600" />}
@@ -203,23 +313,47 @@ const ResumeForm = memo(function ResumeForm({
         )}
       </SectionCard>
 
+      {/* ── Skills ───────────────────────────────────────────────────── */}
       <SectionCard
         title="Skills"
         icon={<FaTools className="text-blue-600" />}
         isOpen={open.skills}
         onToggle={() => toggle("skills")}
+        onAdd={() => onAddRow("skills")}
       >
-        <Field
-          label="Comma separated"
-          value={resume.skills}
-          onChange={(v) => onFieldChange("skills", v)}
-          placeholder="React, Node.js, Figma, SQL"
-        />
-        <p className="text-xs text-slate-400">
-          Separate each skill with a comma — they render as individual badges.
-        </p>
+        {resume.skills.length === 0 ? (
+          <EmptyHint>No skills yet — use Add to create your first skill.</EmptyHint>
+        ) : (
+          resume.skills.map((item, index) => (
+            <RepeatableRow
+              key={index}
+              index={index}
+              total={resume.skills.length}
+              onRemove={(i) => onRemoveRow("skills", i)}
+              onMove={(from, to) => onMoveRow("skills", from, to)}
+            >
+              <Field
+                label="Skill name"
+                value={item.skill_name}
+                onChange={(v) => onRowChange("skills", index, "skill_name", v)}
+                placeholder="React, Node.js, Figma…"
+              />
+              <Field
+                label="Summary (optional)"
+                rows={2}
+                markdown
+                isPreview={previews[`skills.${index}.summary`]}
+                onTogglePreview={() => togglePreview(`skills.${index}.summary`)}
+                value={item.summary}
+                onChange={(v) => onRowChange("skills", index, "summary", v)}
+                placeholder="Brief description or proficiency level"
+              />
+            </RepeatableRow>
+          ))
+        )}
       </SectionCard>
 
+      {/* ── Projects ─────────────────────────────────────────────────── */}
       <SectionCard
         title="Projects"
         icon={<FaLightbulb className="text-blue-600" />}
@@ -267,6 +401,7 @@ const ResumeForm = memo(function ResumeForm({
         )}
       </SectionCard>
 
+      {/* ── Certifications ───────────────────────────────────────────── */}
       <SectionCard
         title="Certifications"
         icon={<FaCertificate className="text-blue-600" />}
@@ -310,6 +445,7 @@ const ResumeForm = memo(function ResumeForm({
         )}
       </SectionCard>
 
+      {/* ── Languages ────────────────────────────────────────────────── */}
       <SectionCard
         title="Languages"
         icon={<FaLanguage className="text-blue-600" />}
@@ -347,6 +483,7 @@ const ResumeForm = memo(function ResumeForm({
         )}
       </SectionCard>
 
+      {/* ── Custom Sections ───────────────────────────────────────────── */}
       <SectionCard
         title="Custom Sections"
         icon={<FaLayerGroup className="text-blue-600" />}

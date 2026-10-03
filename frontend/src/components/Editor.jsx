@@ -3,6 +3,7 @@ import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { toast } from "react-hot-toast";
 import { FaSave, FaArrowLeft, FaPalette } from "react-icons/fa";
 import { useResume } from "../contex/resumeContext";
+import { resumeApi } from "../services/api";
 import ResumeForm from "./editor/ResumeForm";
 import ResumePreview from "./editor/ResumePreview";
 import {
@@ -103,6 +104,30 @@ const EditorContent = ({ id, templateParam, isNew }) => {
       personalInfo: { ...prev.personalInfo, [field]: value },
     }));
   }, []);
+
+  const handleContactChange = useCallback((field, value) => {
+    setResume((prev) => ({
+      ...prev,
+      contact: { ...prev.contact, [field]: value },
+    }));
+  }, []);
+
+  const handlePictureUpload = useCallback(async (file) => {
+    if (!resumeId) {
+      toast.error("Save the resume first before uploading a picture.");
+      return;
+    }
+    const formData = new FormData();
+    formData.append("picture", file);
+    try {
+      const response = await resumeApi.uploadPicture(resumeId, formData);
+      const updated = response.data.resume;
+      setResume((prev) => ({ ...prev, pictureUrl: updated.pictureUrl }));
+      toast.success("Picture uploaded successfully");
+    } catch {
+      toast.error("Failed to upload picture.");
+    }
+  }, [resumeId]);
 
   const handleRowChange = useCallback((section, index, field, value) => {
     setResume((prev) => ({
@@ -230,6 +255,8 @@ const EditorContent = ({ id, templateParam, isNew }) => {
             resume={resume}
             onFieldChange={handleFieldChange}
             onPersonalInfoChange={handlePersonalInfoChange}
+            onContactChange={handleContactChange}
+            onPictureUpload={handlePictureUpload}
             onRowChange={handleRowChange}
             onAddRow={handleAddRow}
             onRemoveRow={handleRemoveRow}

@@ -1,5 +1,6 @@
 import express from "express";
 import { authMiddleware } from "../../middleware/auth.js";
+import { uploadPicture } from "../../middleware/upload.js";
 import * as resumeController from "./resume.controller.js";
 
 /**
@@ -18,5 +19,6 @@ router.post("/", resumeController.create);
 router.get("/:id", resumeController.getById);
 router.put("/:id", resumeController.update);
 router.delete("/:id", resumeController.remove);
+router.post("/:id/picture", uploadPicture, resumeController.uploadPicture);
 
 export default router;

@@ -51,6 +51,10 @@ export const toTemplateDocument = (row) => {
     // MySQL has no native boolean: TINYINT(1) arrives as 0/1 and must be cast,
     // or the UI's `isActive !== false` filter would treat 0 as truthy.
     isActive: Boolean(row.is_active),
+    hasPhoto: Boolean(row.has_photo),
+    columns: Number(row.columns ?? 1),
+    style: row.style ?? "contemporary",
+    occupation: row.occupation ?? "",
     version: row.version,
     popularity: row.popularity,
     createdAt: row.created_at,
@@ -72,6 +76,10 @@ export const toTemplateRow = (template = {}) => ({
   styling: JSON.stringify(template.styling ?? {}),
   preview_image: template.previewImage ?? null,
   is_active: template.isActive === false ? 0 : 1,
+  has_photo: template.hasPhoto ? 1 : 0,
+  columns: Number(template.columns ?? 1),
+  style: String(template.style ?? "contemporary"),
+  occupation: String(template.occupation ?? ""),
   version: Number(template.version ?? 1),
   popularity: Number(template.popularity ?? 0),
 });

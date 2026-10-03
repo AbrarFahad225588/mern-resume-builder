@@ -6,7 +6,8 @@ import { toTemplateDocument, toTemplateRow } from "./template.model.js";
  */
 
 const TEMPLATE_COLUMNS = `id, slug, name, layout_style, category, description,
-  tags, styling, preview_image, is_active, version, popularity,
+  tags, styling, preview_image, has_photo, columns, style, occupation,
+  is_active, version, popularity,
   created_at, updated_at`;
 
 export const findAllActive = async () => {
@@ -56,8 +57,9 @@ export const replaceAll = async (templates) => {
       await connection.execute(
         `INSERT INTO templates
            (id, slug, name, layout_style, category, description,
-            tags, styling, preview_image, is_active, version, popularity)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            tags, styling, preview_image, has_photo, columns, style, occupation,
+            is_active, version, popularity)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           row.id,
           row.slug,
@@ -68,6 +70,10 @@ export const replaceAll = async (templates) => {
           row.tags,
           row.styling,
           row.preview_image,
+          row.has_photo,
+          row.columns,
+          row.style,
+          row.occupation,
           row.is_active,
           row.version,
           row.popularity,

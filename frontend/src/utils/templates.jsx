@@ -18,6 +18,10 @@ export const TEMPLATES = {
     tags: ["executive", "professional", "minimal", "dark-accent"],
     description:
       "Sophisticated template for C-suite executives with dark accent colors, perfect for senior management positions in China's top corporations.",
+    hasPhoto: false,
+    columns: 1,
+    style: "traditional",
+    occupation: "Management & Executive",
     styling: {
       canvas: "bg-white shadow-2xl font-sans",
       header: "bg-gray-900 text-white p-8",
@@ -41,6 +45,10 @@ export const TEMPLATES = {
     tags: ["tech", "startup", "innovative", "gradient"],
     description:
       "Dynamic template with gradient accents designed for software engineers, data scientists, and tech innovators in China's booming digital economy.",
+    hasPhoto: false,
+    columns: 1,
+    style: "contemporary",
+    occupation: "Management & Executive",
     styling: {
       canvas: "bg-gradient-to-br from-blue-50 to-purple-50 shadow-xl font-sans",
       header: "bg-gradient-to-r from-blue-600 to-purple-600 text-white p-8",
@@ -65,6 +73,10 @@ export const TEMPLATES = {
     tags: ["corporate", "traditional", "reliable", "blue"],
     description:
       "Clean corporate template with classic blue tones, widely accepted in Chinese state-owned enterprises and established corporations.",
+    hasPhoto: false,
+    columns: 1,
+    style: "traditional",
+    occupation: "Business & Finance",
     styling: {
       canvas: "bg-white shadow-lg font-sans",
       header: "bg-blue-800 text-white p-6",
@@ -88,6 +100,10 @@ export const TEMPLATES = {
     tags: ["creative", "design", "portfolio", "colorful"],
     description:
       "Vibrant template for designers, artists, and creative professionals in China's advertising and entertainment industries.",
+    hasPhoto: true,
+    columns: 1,
+    style: "creative",
+    occupation: "Office & Administrative Support",
     styling: {
       canvas: "bg-white shadow-2xl rounded-2xl overflow-hidden font-sans",
       header: "bg-gradient-to-r from-pink-500 to-orange-400 text-white p-10",
@@ -111,6 +127,10 @@ export const TEMPLATES = {
     tags: ["finance", "banking", "professional", "green"],
     description:
       "Elegant template with forest green accents, tailored for banking, finance, and investment professionals in China's financial hubs.",
+    hasPhoto: false,
+    columns: 1,
+    style: "traditional",
+    occupation: "Business & Finance",
     styling: {
       canvas: "bg-gray-50 shadow-xl font-serif",
       header: "bg-green-800 text-white p-7",
@@ -134,6 +154,10 @@ export const TEMPLATES = {
     tags: ["academic", "research", "education", "maroon"],
     description:
       "Formal academic template for professors, researchers, and educators in Chinese universities and research institutions.",
+    hasPhoto: false,
+    columns: 1,
+    style: "traditional",
+    occupation: "Management & Executive",
     styling: {
       canvas: "bg-white shadow-lg font-serif",
       header: "bg-red-900 text-white p-6",
@@ -157,6 +181,10 @@ export const TEMPLATES = {
     tags: ["sales", "marketing", "dynamic", "orange"],
     description:
       "High-impact template with orange accents for sales managers, marketing directors, and business development professionals.",
+    hasPhoto: false,
+    columns: 1,
+    style: "contemporary",
+    occupation: "Retail & Sales",
     styling: {
       canvas: "bg-white shadow-xl font-sans",
       header: "bg-gradient-to-r from-orange-600 to-red-600 text-white p-8",
@@ -181,6 +209,10 @@ export const TEMPLATES = {
     tags: ["minimal", "clean", "modern", "monochrome"],
     description:
       "Ultra-minimalist template with monochrome design, popular among China's tech startups and modern professionals.",
+    hasPhoto: false,
+    columns: 1,
+    style: "contemporary",
+    occupation: "Management & Executive",
     styling: {
       canvas: "bg-white shadow-lg font-sans",
       header: "bg-gray-50 border-b-2 border-gray-900 p-6 text-gray-900",
@@ -205,6 +237,10 @@ export const TEMPLATES = {
     tags: ["healthcare", "medical", "trust", "teal"],
     description:
       "Trustworthy template with teal accents for medical professionals, healthcare administrators, and pharmaceutical executives.",
+    hasPhoto: true,
+    columns: 1,
+    style: "contemporary",
+    occupation: "Healthcare & Medical",
     styling: {
       canvas: "bg-white shadow-xl font-sans",
       header: "bg-teal-700 text-white p-8",
@@ -228,6 +264,10 @@ export const TEMPLATES = {
     tags: ["legal", "law", "formal", "navy"],
     description:
       "Authoritative template with navy blue styling, designed for lawyers, legal professionals, and compliance officers.",
+    hasPhoto: false,
+    columns: 1,
+    style: "traditional",
+    occupation: "Management & Executive",
     styling: {
       canvas: "bg-white shadow-2xl font-serif",
       header: "bg-blue-950 text-white p-6",
@@ -243,6 +283,102 @@ export const TEMPLATES = {
     isActive: true,
     version: 1,
     popularity: 78,
+  },
+  "split-modern-011": {
+    id: "split-modern-011",
+    name: "Split Modern",
+    layoutStyle: "Modern • Two Column",
+    category: "Tech",
+    tags: ["two-column", "modern", "sidebar", "dark"],
+    description:
+      "Sleek two-column template with a dark sidebar, ideal for tech and management leaders who want a contemporary edge.",
+    hasPhoto: true,
+    columns: 2,
+    style: "contemporary",
+    occupation: "Management & Executive",
+    styling: {
+      layout: "two-column",
+      sidebar: "bg-gray-900 text-white p-6 w-64 shrink-0",
+      canvas: "bg-white shadow-2xl flex",
+      header: "bg-gray-900 text-white p-6",
+      name: "text-2xl font-bold tracking-wide",
+      role: "text-sm font-light text-gray-300 mt-1",
+      heading:
+        "text-sm font-bold text-gray-200 uppercase tracking-widest border-b border-gray-600 pb-1 mb-3",
+      sidebarHeading:
+        "text-sm font-bold text-gray-200 uppercase tracking-widest border-b border-gray-600 pb-1 mb-3",
+      mainHeading: "text-sm font-semibold text-gray-800 border-b-2 border-gray-900 pb-1",
+      skillContainer: "flex flex-wrap gap-1 mt-2",
+      skillBadge: "bg-gray-700 text-gray-200 px-2 py-0.5 rounded text-xs",
+    },
+    previewImage: null,
+    isActive: true,
+    version: 1,
+    popularity: 76,
+  },
+  "split-corporate-012": {
+    id: "split-corporate-012",
+    name: "Split Corporate",
+    layoutStyle: "Classic • Two Column",
+    category: "Corporate",
+    tags: ["two-column", "corporate", "sidebar", "blue"],
+    description:
+      "Professional two-column layout with a navy sidebar, built for finance and business roles.",
+    hasPhoto: false,
+    columns: 2,
+    style: "traditional",
+    occupation: "Business & Finance",
+    styling: {
+      layout: "two-column",
+      sidebar: "bg-blue-900 text-white p-6 w-64 shrink-0",
+      canvas: "bg-white shadow-2xl flex",
+      header: "bg-blue-900 text-white p-6",
+      name: "text-2xl font-bold tracking-wide",
+      role: "text-sm font-light text-blue-200 mt-1",
+      heading:
+        "text-sm font-bold text-blue-100 uppercase tracking-widest border-b border-blue-700 pb-1 mb-3",
+      sidebarHeading:
+        "text-sm font-bold text-blue-100 uppercase tracking-widest border-b border-blue-700 pb-1 mb-3",
+      mainHeading: "text-sm font-semibold text-blue-900 border-b-2 border-blue-800 pb-1",
+      skillContainer: "flex flex-wrap gap-1 mt-2",
+      skillBadge: "bg-blue-800 text-blue-100 px-2 py-0.5 rounded text-xs",
+    },
+    previewImage: null,
+    isActive: true,
+    version: 1,
+    popularity: 74,
+  },
+  "split-creative-013": {
+    id: "split-creative-013",
+    name: "Split Creative",
+    layoutStyle: "Creative • Two Column",
+    category: "Creative",
+    tags: ["two-column", "creative", "sidebar", "violet"],
+    description:
+      "Eye-catching two-column template with a vibrant violet sidebar for creatives.",
+    hasPhoto: true,
+    columns: 2,
+    style: "creative",
+    occupation: "Office & Administrative Support",
+    styling: {
+      layout: "two-column",
+      sidebar: "bg-violet-700 text-white p-6 w-64 shrink-0",
+      canvas: "bg-white shadow-2xl flex",
+      header: "bg-violet-700 text-white p-6",
+      name: "text-2xl font-bold tracking-wide",
+      role: "text-sm font-light text-violet-200 mt-1",
+      heading:
+        "text-sm font-bold text-violet-100 uppercase tracking-widest border-b border-violet-500 pb-1 mb-3",
+      sidebarHeading:
+        "text-sm font-bold text-violet-100 uppercase tracking-widest border-b border-violet-500 pb-1 mb-3",
+      mainHeading: "text-sm font-semibold text-violet-800 border-b-2 border-violet-600 pb-1",
+      skillContainer: "flex flex-wrap gap-1 mt-2",
+      skillBadge: "bg-violet-600 text-violet-100 px-2 py-0.5 rounded text-xs",
+    },
+    previewImage: null,
+    isActive: true,
+    version: 1,
+    popularity: 72,
   },
 };
 

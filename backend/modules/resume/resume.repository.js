@@ -3,30 +3,36 @@ import {
   SECTIONS,
   newResumeId,
   normalizeSectionRow,
+  toContactRow,
   toResumeDocument,
   toResumeRow,
 } from "./resume.model.js";
 
 /**
- * Data access for resumes — raw parameterised SQL over seven tables.
+ * Data access for resumes — raw parameterised SQL over the resumes parent
+ * table, the resume_contact child table, and the seven repeatable-section tables.
  *
  * Every multi-table write runs in a transaction so a resume can never be left
- * with a saved parent row but stale or partially written sections.
+ * with a saved parent row but stale or partially written contact / sections.
  */
 
-const RESUME_COLUMNS = `id, user_id, template_id, title, summary, skills,
-  pi_fullname, pi_email, pi_phone, pi_location, pi_website, pi_about, pi_role,
+const RESUME_COLUMNS = `id, user_id, template_id, title, summary, picture_url,
+  pi_fullname, pi_role, pi_about,
   created_at, updated_at`;
 
+const CONTACT_COLUMNS = `resume_id,
+  email, phone, location, address, website, linkedin, twitter, github`;
+
+// ---------------------------------------------------------------------------
+// Internal helpers
+// ---------------------------------------------------------------------------
+
 /**
- * Loads all sections for a set of resumes.
+ * Loads all sections for a set of resumes in one query per section table.
  *
  * One query per section table for the whole page rather than per resume:
  * fetching sections inside a loop over N resumes is the classic N+1 that turns
  * a 10-resume list into 61 round trips.
- *
- * The `IN (...)` placeholders are generated from the array length only — never
- * from user input — so this stays fully parameterised.
  */
 const loadSectionsFor = async (resumeIds, runner = query) => {
   const byResume = new Map(resumeIds.map((id) => [id, {}]));
@@ -55,12 +61,69 @@ const loadSectionsFor = async (resumeIds, runner = query) => {
   return byResume;
 };
 
+/**
+ * Loads the contact row for each resume id in one query.
+ * Returns a Map<resumeId, contactRow|null>.
+ */
+const loadContactFor = async (resumeIds, runner = query) => {
+  const byResume = new Map(resumeIds.map((id) => [id, null]));
+  if (resumeIds.length === 0) return byResume;
+
+  const placeholders = resumeIds.map(() => "?").join(", ");
+  const rows = await runner(
+    `SELECT ${CONTACT_COLUMNS}
+       FROM resume_contact
+      WHERE resume_id IN (${placeholders})`,
+    resumeIds,
+  );
+
+  for (const row of rows) {
+    byResume.set(row.resume_id, row);
+  }
+
+  return byResume;
+};
+
+/**
+ * Upserts the contact row for one resume inside an open transaction.
+ *
+ * INSERT ... ON DUPLICATE KEY UPDATE is safe here because (resume_id) has a
+ * UNIQUE constraint, so at most one row is ever matched.
+ */
+const replaceContact = async (connection, resumeId, payload, existing = null) => {
+  // If the payload carries no contact key at all, leave the existing row untouched
+  // so a partial update (e.g. renaming a resume) cannot wipe contact details.
+  if (payload.contact === undefined) return;
+
+  const c = toContactRow(payload, existing);
+
+  await connection.execute(
+    `INSERT INTO resume_contact
+       (resume_id, email, phone, location, address, website, linkedin, twitter, github)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+     ON DUPLICATE KEY UPDATE
+       email    = VALUES(email),
+       phone    = VALUES(phone),
+       location = VALUES(location),
+       address  = VALUES(address),
+       website  = VALUES(website),
+       linkedin = VALUES(linkedin),
+       twitter  = VALUES(twitter),
+       github   = VALUES(github)`,
+    [
+      resumeId,
+      c.email, c.phone, c.location, c.address,
+      c.website, c.linkedin, c.twitter, c.github,
+    ],
+  );
+};
+
 /** Replaces every section row for one resume, preserving array order. */
 const replaceSections = async (connection, resumeId, payload) => {
   for (const section of SECTIONS) {
     const incoming = payload[section.key];
     // `undefined` means "not supplied" — leave the existing rows untouched so a
-    // partial update (e.g. renaming a resume) cannot wipe its sections.
+    // partial update cannot wipe sections.
     if (incoming === undefined) continue;
 
     await connection.execute(
@@ -71,9 +134,6 @@ const replaceSections = async (connection, resumeId, payload) => {
     const rows = Array.isArray(incoming) ? incoming : [];
     if (rows.length === 0) continue;
 
-    // Delete-then-insert rather than diffing: the editor sends the whole array
-    // and rows carry no stable id, so a positional rewrite is both simpler and
-    // exactly what makes drag-and-drop order durable.
     const columns = ["resume_id", "position", ...section.fields];
     const tuple = `(${columns.map(() => "?").join(", ")})`;
     const values = [];
@@ -90,6 +150,10 @@ const replaceSections = async (connection, resumeId, payload) => {
   }
 };
 
+// ---------------------------------------------------------------------------
+// Public repository functions
+// ---------------------------------------------------------------------------
+
 export const findAllByUser = async (userId) => {
   const rows = await query(
     `SELECT ${RESUME_COLUMNS}
@@ -100,8 +164,15 @@ export const findAllByUser = async (userId) => {
   );
   if (rows.length === 0) return [];
 
-  const sections = await loadSectionsFor(rows.map((r) => r.id));
-  return rows.map((row) => toResumeDocument(row, sections.get(row.id)));
+  const ids = rows.map((r) => r.id);
+  const [sections, contacts] = await Promise.all([
+    loadSectionsFor(ids),
+    loadContactFor(ids),
+  ]);
+
+  return rows.map((row) =>
+    toResumeDocument(row, contacts.get(row.id), sections.get(row.id)),
+  );
 };
 
 /**
@@ -121,8 +192,12 @@ export const findByIdForUser = async (id, userId) => {
   );
   if (rows.length === 0) return null;
 
-  const sections = await loadSectionsFor([id]);
-  return toResumeDocument(rows[0], sections.get(id));
+  const [sections, contacts] = await Promise.all([
+    loadSectionsFor([id]),
+    loadContactFor([id]),
+  ]);
+
+  return toResumeDocument(rows[0], contacts.get(id), sections.get(id));
 };
 
 export const create = async (userId, payload) => {
@@ -132,29 +207,21 @@ export const create = async (userId, payload) => {
   await withTransaction(async (connection) => {
     await connection.execute(
       `INSERT INTO resumes
-         (id, user_id, template_id, title, summary, skills,
-          pi_fullname, pi_email, pi_phone, pi_location, pi_website,
-          pi_about, pi_role)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+         (id, user_id, template_id, title, summary,
+          pi_fullname, pi_role, pi_about)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
       [
-        id,
-        userId,
-        row.template_id,
-        row.title,
-        row.summary,
-        row.skills,
-        row.pi_fullname,
-        row.pi_email,
-        row.pi_phone,
-        row.pi_location,
-        row.pi_website,
-        row.pi_about,
-        row.pi_role,
+        id, userId,
+        row.template_id, row.title, row.summary,
+        row.pi_fullname, row.pi_role, row.pi_about,
       ],
     );
 
-    // Sections default to [] on create so a new resume starts with all six
-    // arrays present, matching the old document defaults.
+    // Always write a contact row on create (even if all fields are blank) so
+    // the UNIQUE constraint is satisfied and subsequent upserts always hit
+    // the UPDATE branch rather than failing on a missing row.
+    await replaceContact(connection, id, { contact: payload.contact ?? {} });
+
     const sectionPayload = {};
     for (const section of SECTIONS) {
       sectionPayload[section.key] = payload[section.key] ?? [];
@@ -169,38 +236,23 @@ export const update = async (id, userId, payload) => {
   const existing = await findByIdForUser(id, userId);
   if (!existing) return null;
 
-  // Merged against the current document so a partial payload behaves like the
-  // old `$set`: unspecified fields keep their stored value.
   const row = toResumeRow(payload, existing);
 
   await withTransaction(async (connection) => {
     await connection.execute(
       `UPDATE resumes
-          SET template_id = ?, title = ?, summary = ?, skills = ?,
-              pi_fullname = ?, pi_email = ?, pi_phone = ?, pi_location = ?,
-              pi_website = ?, pi_about = ?, pi_role = ?,
-              -- Refreshed on every write. The old schema needed a Mongoose
-              -- hook for this; here it is simply part of the statement, so the
-              -- "most recently edited first" ordering cannot silently break.
+          SET template_id = ?, title = ?, summary = ?,
+              pi_fullname = ?, pi_role = ?, pi_about = ?,
               updated_at = CURRENT_TIMESTAMP(3)
         WHERE id = ? AND user_id = ?`,
       [
-        row.template_id,
-        row.title,
-        row.summary,
-        row.skills,
-        row.pi_fullname,
-        row.pi_email,
-        row.pi_phone,
-        row.pi_location,
-        row.pi_website,
-        row.pi_about,
-        row.pi_role,
-        id,
-        userId,
+        row.template_id, row.title, row.summary,
+        row.pi_fullname, row.pi_role, row.pi_about,
+        id, userId,
       ],
     );
 
+    await replaceContact(connection, id, payload, existing);
     await replaceSections(connection, id, payload);
   });
 
@@ -208,8 +260,27 @@ export const update = async (id, userId, payload) => {
 };
 
 /**
- * Deletes a resume. Section rows disappear via ON DELETE CASCADE, so there is
- * no chance of orphaned rows if this is interrupted.
+ * Stores the uploaded picture URL for a resume.
+ *
+ * Deliberately a separate statement from the main update: the file upload
+ * endpoint is the only path that may change picture_url, so mixing it into
+ * the regular save would let any save clear a photo if the client omits the
+ * field.
+ */
+export const updatePicture = async (id, userId, pictureUrl) => {
+  const result = await query(
+    `UPDATE resumes
+        SET picture_url = ?, updated_at = CURRENT_TIMESTAMP(3)
+      WHERE id = ? AND user_id = ?`,
+    [pictureUrl, id, userId],
+  );
+  if (result.affectedRows === 0) return null;
+  return findByIdForUser(id, userId);
+};
+
+/**
+ * Deletes a resume. The contact row and all section rows disappear via
+ * ON DELETE CASCADE, so there is no chance of orphaned rows.
  */
 export const remove = async (id, userId) => {
   const result = await query(
