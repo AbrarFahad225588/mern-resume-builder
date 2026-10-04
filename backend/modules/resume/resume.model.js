@@ -4,11 +4,10 @@ import crypto from "node:crypto";
  * The Resume model: table/column definitions plus the mapping between the
  * relational rows and the nested JSON document the API exposes.
  *
- * The frontend contract is a single nested object (personalInfo + six arrays).
- * Storing that relationally is the right call — it lets the database enforce
- * ownership and row order — but it means the shape must be assembled on read
- * and decomposed on write. Both directions live here so the two can never
- * drift apart.
+ * The frontend contract is a single nested object (personalInfo + contact + sections).
+ * Storing that relationally lets the database enforce ownership and referential
+ * integrity. Both the decompose (write) and assemble (read) directions live here
+ * so they can never drift apart.
  */
 
 export const newResumeId = () => crypto.randomUUID();
@@ -19,8 +18,8 @@ export const DEFAULT_TITLE = "Untitled Resume";
 /**
  * Section table metadata, driving every section read/write generically.
  *
- * Declaring these once removes six near-identical copies of the same
- * insert/select logic; adding a seventh section becomes a single entry here.
+ * Declaring these once removes near-identical copies of the same
+ * insert/select logic; adding a new section is a single entry here.
  */
 export const SECTIONS = Object.freeze([
   {
@@ -53,6 +52,11 @@ export const SECTIONS = Object.freeze([
     table: "resume_custom_sections",
     fields: ["title", "details"],
   },
+  {
+    key: "skills",
+    table: "resume_skills",
+    fields: ["skill_name", "summary"],
+  },
 ]);
 
 const str = (value, fallback = "") =>
@@ -73,7 +77,11 @@ export const normalizeSectionRow = (section, row = {}) => {
   return clean;
 };
 
-/** Parent-table columns from a (already sanitised) payload. */
+/**
+ * Maps the payload to the resumes parent-table columns.
+ * contact fields are intentionally excluded — they live in resume_contact
+ * and are written by toContactRow / replaceContact in the repository.
+ */
 export const toResumeRow = (payload = {}, existing = null) => {
   const personalInfo = payload.personalInfo ?? {};
   const fallback = existing ?? {};
@@ -84,25 +92,45 @@ export const toResumeRow = (payload = {}, existing = null) => {
     template_id: str(payload.templateId ?? fallback.templateId, DEFAULT_TEMPLATE_ID),
     title: str(payload.title ?? fallback.title, DEFAULT_TITLE),
     summary: str(payload.summary ?? fallback.summary),
-    skills: str(payload.skills ?? fallback.skills),
+    // Omitted keeps the current photo; null/"" removes it. The URL itself was
+    // validated by the service and points at a file the upload endpoint stored.
+    picture_url:
+      payload.pictureUrl === undefined
+        ? fallback.pictureUrl ?? null
+        : payload.pictureUrl || null,
     pi_fullname: str(personalInfo.fullname ?? fallback.personalInfo?.fullname),
-    pi_email: str(personalInfo.email ?? fallback.personalInfo?.email),
-    pi_phone: str(personalInfo.phone ?? fallback.personalInfo?.phone),
-    pi_location: str(personalInfo.location ?? fallback.personalInfo?.location),
-    pi_website: str(personalInfo.website ?? fallback.personalInfo?.website),
-    pi_about: str(personalInfo.about ?? fallback.personalInfo?.about),
     pi_role: str(personalInfo.role ?? fallback.personalInfo?.role),
+    pi_about: str(personalInfo.about ?? fallback.personalInfo?.about),
   };
 };
 
 /**
- * Rows -> the nested resume document the API returns.
- *
- * Field names (`_id`, `user`, `templateId`, `personalInfo`, `createdAt`) are
- * kept exactly as the Mongoose version produced them so no frontend code has
- * to change.
+ * Maps the payload contact object to the resume_contact table columns.
+ * Falls back to existing contact values so a partial update never clears fields.
  */
-export const toResumeDocument = (row, sectionRows = {}) => {
+export const toContactRow = (payload = {}, existing = null) => {
+  const contact = payload.contact ?? {};
+  const fallback = existing?.contact ?? {};
+
+  return {
+    email:    str(contact.email    ?? fallback.email),
+    phone:    str(contact.phone    ?? fallback.phone),
+    location: str(contact.location ?? fallback.location),
+    address:  str(contact.address  ?? fallback.address),
+    website:  str(contact.website  ?? fallback.website),
+    linkedin: str(contact.linkedin ?? fallback.linkedin),
+    twitter:  str(contact.twitter  ?? fallback.twitter),
+    github:   str(contact.github   ?? fallback.github),
+  };
+};
+
+/**
+ * Assembles the full resume document returned by the API.
+ *
+ * Accepts the resumes row, the contact row (may be null for legacy rows),
+ * and the pre-loaded section rows map.
+ */
+export const toResumeDocument = (row, contactRow = null, sectionRows = {}) => {
   if (!row) return null;
 
   const document = {
@@ -110,22 +138,28 @@ export const toResumeDocument = (row, sectionRows = {}) => {
     user: row.user_id,
     templateId: row.template_id,
     title: row.title,
+    pictureUrl: row.picture_url ?? null,
     personalInfo: {
       fullname: row.pi_fullname ?? "",
-      email: row.pi_email ?? "",
-      phone: row.pi_phone ?? "",
-      location: row.pi_location ?? "",
-      website: row.pi_website ?? "",
-      about: row.pi_about ?? "",
       role: row.pi_role ?? "",
+      about: row.pi_about ?? "",
+    },
+    contact: {
+      email:    contactRow?.email    ?? "",
+      phone:    contactRow?.phone    ?? "",
+      location: contactRow?.location ?? "",
+      address:  contactRow?.address  ?? "",
+      website:  contactRow?.website  ?? "",
+      linkedin: contactRow?.linkedin ?? "",
+      twitter:  contactRow?.twitter  ?? "",
+      github:   contactRow?.github   ?? "",
     },
     summary: row.summary ?? "",
-    skills: row.skills ?? "",
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
 
-  // Sections always appear, as arrays, even when empty. The editor indexes into
+  // Sections always appear as arrays, even when empty. The editor indexes into
   // them directly, so a missing key would throw on render.
   for (const section of SECTIONS) {
     document[section.key] = (sectionRows[section.key] ?? []).map((sectionRow) => {

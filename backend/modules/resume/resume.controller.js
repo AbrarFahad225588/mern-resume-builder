@@ -40,3 +40,23 @@ export const remove = asyncHandler(async (req, res) => {
   await resumeService.deleteForUser(req.params.id, req.user._id);
   res.json({ success: true, message: "Resume deleted successfully" });
 });
+
+export const uploadDraftPicture = asyncHandler(async (req, res) => {
+  if (!req.file) {
+    return res.status(400).json({ success: false, message: "No image file provided" });
+  }
+  const pictureUrl = resumeService.storeDraftPicture(req.file);
+  res.status(201).json({ success: true, pictureUrl, message: "Picture uploaded successfully" });
+});
+
+export const uploadPicture = asyncHandler(async (req, res) => {
+  if (!req.file) {
+    return res.status(400).json({ success: false, message: "No image file provided" });
+  }
+  const resume = await resumeService.uploadPictureForUser(
+    req.params.id,
+    req.user._id,
+    req.file,
+  );
+  res.json({ success: true, resume, message: "Picture uploaded successfully" });
+});

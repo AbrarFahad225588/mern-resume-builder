@@ -23,17 +23,13 @@ CREATE TABLE IF NOT EXISTS resumes (
   template_id    VARCHAR(191) NOT NULL DEFAULT 'china-executive-001',
   title          VARCHAR(255) NOT NULL DEFAULT 'Untitled Resume',
   summary        LONGTEXT     NULL,
-  -- Comma separated, exactly as before: the editor stores one string and the
-  -- UI splits it into chips. Normalising it into a table would change the
-  -- payload shape the frontend expects.
-  skills         LONGTEXT     NULL,
+
+  -- picture (nullable — resume can have no photo)
+  picture_url    VARCHAR(500) NULL,
+  -- personal info: identity fields only
   pi_fullname    VARCHAR(255) NOT NULL DEFAULT '',
-  pi_email       VARCHAR(255) NOT NULL DEFAULT '',
-  pi_phone       VARCHAR(100) NOT NULL DEFAULT '',
-  pi_location    VARCHAR(255) NOT NULL DEFAULT '',
-  pi_website     VARCHAR(255) NOT NULL DEFAULT '',
-  pi_about       LONGTEXT     NULL,
   pi_role        VARCHAR(255) NOT NULL DEFAULT '',
+  pi_about       LONGTEXT     NULL,
   created_at     DATETIME(3)  NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
   updated_at     DATETIME(3)  NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
   PRIMARY KEY (id),
@@ -149,6 +145,10 @@ CREATE TABLE IF NOT EXISTS templates (
   tags          JSON         NULL,
   styling       JSON         NULL,
   preview_image VARCHAR(500) NULL,
+  has_photo     TINYINT(1)   NOT NULL DEFAULT 0,
+  columns       TINYINT      NOT NULL DEFAULT 1,
+  style         VARCHAR(50)  NOT NULL DEFAULT 'contemporary',
+  occupation    VARCHAR(100) NOT NULL DEFAULT '',
   is_active     TINYINT(1)   NOT NULL DEFAULT 1,
   version       INT          NOT NULL DEFAULT 1,
   popularity    INT          NOT NULL DEFAULT 0,
@@ -167,5 +167,35 @@ CREATE TABLE IF NOT EXISTS templates (
 #  requirement 
 
 
-# lagings of skills 
+-- Contact information is normalised into its own table.
+-- One-to-one with resumes: every resume has exactly one contact row,
+-- created atomically with the resume and deleted via ON DELETE CASCADE.
+CREATE TABLE IF NOT EXISTS resume_contact (
+  id        BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  resume_id CHAR(36)        NOT NULL,
+  email     VARCHAR(255)    NOT NULL DEFAULT '',
+  phone     VARCHAR(100)    NOT NULL DEFAULT '',
+  location  VARCHAR(255)    NOT NULL DEFAULT '',
+  address   VARCHAR(255)    NOT NULL DEFAULT '',
+  website   VARCHAR(255)    NOT NULL DEFAULT '',
+  linkedin  VARCHAR(255)    NOT NULL DEFAULT '',
+  twitter   VARCHAR(255)    NOT NULL DEFAULT '',
+  github    VARCHAR(255)    NOT NULL DEFAULT '',
+  PRIMARY KEY (id),
+  UNIQUE KEY uq_contact_resume (resume_id),
+  CONSTRAINT fk_contact_resume FOREIGN KEY (resume_id)
+    REFERENCES resumes (id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS resume_skills (
+  id         BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  resume_id  CHAR(36)        NOT NULL,
+  position   INT UNSIGNED    NOT NULL,
+  skill_name VARCHAR(255)    NOT NULL DEFAULT '',
+  summary    LONGTEXT        NULL,
+  PRIMARY KEY (id),
+  UNIQUE KEY uq_skills_slot (resume_id, position),
+  CONSTRAINT fk_skills_resume FOREIGN KEY (resume_id)
+    REFERENCES resumes (id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 

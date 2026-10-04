@@ -1,3 +1,4 @@
+import multer from "multer";
 import { AppError } from "../shared/AppError.js";
 import { isProduction } from "../config/env.js";
 
@@ -26,6 +27,13 @@ export const errorHandler = (error, req, res, next) => {
       body.errors = error.details;
     }
     return res.status(error.statusCode).json(body);
+  }
+
+  // Upload limits (file too large, too many files) are client mistakes too.
+  if (error instanceof multer.MulterError) {
+    const message =
+      error.code === "LIMIT_FILE_SIZE" ? "Image must be 5 MB or smaller" : error.message;
+    return res.status(400).json({ success: false, message });
   }
 
   // Translate the few driver errors that are really client mistakes.

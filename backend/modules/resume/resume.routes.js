@@ -1,5 +1,6 @@
 import express from "express";
 import { authMiddleware } from "../../middleware/auth.js";
+import { uploadPicture } from "../../middleware/upload.js";
 import * as resumeController from "./resume.controller.js";
 
 /**
@@ -15,8 +16,12 @@ router.use(authMiddleware);
 
 router.get("/", resumeController.list);
 router.post("/", resumeController.create);
+// Stores a picture before the resume exists; the returned URL is saved with
+// the resume like any other field.
+router.post("/picture", uploadPicture, resumeController.uploadDraftPicture);
 router.get("/:id", resumeController.getById);
 router.put("/:id", resumeController.update);
 router.delete("/:id", resumeController.remove);
+router.post("/:id/picture", uploadPicture, resumeController.uploadPicture);
 
 export default router;

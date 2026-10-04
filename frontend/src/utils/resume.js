@@ -3,12 +3,13 @@ import { DEFAULT_TEMPLATE_ID } from "./templates";
 // Blank rows for each repeatable section. Exposed individually so the editor
 // can append a fresh row without duplicating the field list.
 export const EMPTY_ROWS = {
-  experiences: { company: "", role: "", duration: "", summary: "" },
-  education: { school: "", degree: "", duration: "" },
-  projects: { title: "", tech: "", details: "" },
+  experiences:    { company: "", role: "", duration: "", summary: "" },
+  education:      { school: "", degree: "", duration: "" },
+  projects:       { title: "", tech: "", details: "" },
   certifications: { name: "", issuer: "", year: "" },
-  languages: { name: "", level: "" },
+  languages:      { name: "", level: "" },
   customSections: { title: "", details: "" },
+  skills:         { skill_name: "", summary: "" },
 };
 
 export const createEmptyRow = (section) => ({ ...EMPTY_ROWS[section] });
@@ -16,24 +17,31 @@ export const createEmptyRow = (section) => ({ ...EMPTY_ROWS[section] });
 /**
  * Build a brand new, empty resume for `templateId`.
  *
- * Content always starts blank; only `templateId` carries the chosen design.
- * That split is what lets the template be swapped later without touching a
- * single character the user typed.
+ * personalInfo  — identity only (fullname, role, about)
+ * contact       — all communication & social fields (separate DB table)
+ * pictureUrl    — null until a photo is uploaded via the dedicated endpoint
  */
 export const createEmptyResume = (templateId = DEFAULT_TEMPLATE_ID) => ({
   templateId: templateId || DEFAULT_TEMPLATE_ID,
   title: "Untitled Resume",
+  pictureUrl: null,
   personalInfo: {
     fullname: "",
-    email: "",
-    phone: "",
-    location: "",
-    website: "",
     role: "",
     about: "",
   },
+  contact: {
+    email: "",
+    phone: "",
+    location: "",
+    address: "",
+    website: "",
+    linkedin: "",
+    twitter: "",
+    github: "",
+  },
   summary: "",
-  skills: "",
+  skills: [],
   experiences: [],
   education: [],
   projects: [],
@@ -45,9 +53,8 @@ export const createEmptyResume = (templateId = DEFAULT_TEMPLATE_ID) => ({
 /**
  * Normalise a resume coming from the API.
  *
- * Documents saved before a field existed come back without it, and rendering
- * `undefined.map(...)` would crash the preview. This guarantees every section
- * is present and array-typed before it reaches React.
+ * Guarantees every key exists and is the right type before it reaches React,
+ * so components never crash on undefined.map() or undefined.trim().
  */
 export const normalizeResume = (resume, fallbackTemplateId) => {
   const base = createEmptyResume(
@@ -60,26 +67,21 @@ export const normalizeResume = (resume, fallbackTemplateId) => {
   return {
     ...base,
     ...resume,
-    templateId: resume.templateId || base.templateId,
-    title: resume.title || base.title,
+    templateId:  resume.templateId || base.templateId,
+    title:       resume.title      || base.title,
+    pictureUrl:  resume.pictureUrl ?? null,
     personalInfo: { ...base.personalInfo, ...(resume.personalInfo || {}) },
-    summary: resume.summary ?? "",
-    skills: resume.skills ?? "",
-    experiences: asArray(resume.experiences),
-    education: asArray(resume.education),
-    projects: asArray(resume.projects),
+    contact:      { ...base.contact,      ...(resume.contact      || {}) },
+    summary:      resume.summary ?? "",
+    skills:         asArray(resume.skills),
+    experiences:    asArray(resume.experiences),
+    education:      asArray(resume.education),
+    projects:       asArray(resume.projects),
     certifications: asArray(resume.certifications),
-    languages: asArray(resume.languages),
+    languages:      asArray(resume.languages),
     customSections: asArray(resume.customSections),
   };
 };
-
-/** Comma separated skills -> chips, ignoring stray blanks. */
-export const parseSkills = (skills) =>
-  (skills || "")
-    .split(",")
-    .map((s) => s.trim())
-    .filter(Boolean);
 
 /** True when a repeatable row is still completely blank. */
 export const isEmptyRow = (row) =>

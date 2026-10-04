@@ -3,6 +3,7 @@ import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { toast } from "react-hot-toast";
 import { FaSave, FaArrowLeft, FaPalette } from "react-icons/fa";
 import { useResume } from "../contex/resumeContext";
+import { resumeApi } from "../services/api";
 import ResumeForm from "./editor/ResumeForm";
 import ResumePreview from "./editor/ResumePreview";
 import {
@@ -102,6 +103,28 @@ const EditorContent = ({ id, templateParam, isNew }) => {
       ...prev,
       personalInfo: { ...prev.personalInfo, [field]: value },
     }));
+  }, []);
+
+  const handleContactChange = useCallback((field, value) => {
+    setResume((prev) => ({
+      ...prev,
+      contact: { ...prev.contact, [field]: value },
+    }));
+  }, []);
+
+  // The upload is independent of the resume, so it works on an unsaved draft.
+  // Only the returned URL goes into the draft; it is persisted on Save along
+  // with every other field.
+  const handlePictureUpload = useCallback(async (file) => {
+    const formData = new FormData();
+    formData.append("picture", file);
+    try {
+      const response = await resumeApi.uploadPicture(formData);
+      setResume((prev) => ({ ...prev, pictureUrl: response.data.pictureUrl }));
+      toast.success("Picture uploaded — save to keep it.");
+    } catch (error) {
+      toast.error(error.response?.data?.message || "Failed to upload picture.");
+    }
   }, []);
 
   const handleRowChange = useCallback((section, index, field, value) => {
@@ -230,6 +253,8 @@ const EditorContent = ({ id, templateParam, isNew }) => {
             resume={resume}
             onFieldChange={handleFieldChange}
             onPersonalInfoChange={handlePersonalInfoChange}
+            onContactChange={handleContactChange}
+            onPictureUpload={handlePictureUpload}
             onRowChange={handleRowChange}
             onAddRow={handleAddRow}
             onRemoveRow={handleRemoveRow}
