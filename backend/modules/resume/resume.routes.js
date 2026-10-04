@@ -16,6 +16,9 @@ router.use(authMiddleware);
 
 router.get("/", resumeController.list);
 router.post("/", resumeController.create);
+// Stores a picture before the resume exists; the returned URL is saved with
+// the resume like any other field.
+router.post("/picture", uploadPicture, resumeController.uploadDraftPicture);
 router.get("/:id", resumeController.getById);
 router.put("/:id", resumeController.update);
 router.delete("/:id", resumeController.remove);

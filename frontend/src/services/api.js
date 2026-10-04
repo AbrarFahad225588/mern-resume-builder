@@ -36,8 +36,9 @@ export const resumeApi = {
   getResumeById: (id)               => api.get(`/resumes/${id}`),
   updateResume:  (id, resumeData)   => api.put(`/resumes/${id}`, resumeData),
   deleteResume:  (id)               => api.delete(`/resumes/${id}`),
-  // multipart/form-data — FormData must be passed by the caller
-  uploadPicture: (id, formData)     => api.post(`/resumes/${id}/picture`, formData, {
+  // multipart/form-data — FormData must be passed by the caller. Not tied to a
+  // resume, so it works on an unsaved draft; responds with { pictureUrl }.
+  uploadPicture: (formData)         => api.post('/resumes/picture', formData, {
     headers: { 'Content-Type': 'multipart/form-data' },
   }),
 };

@@ -207,12 +207,12 @@ export const create = async (userId, payload) => {
   await withTransaction(async (connection) => {
     await connection.execute(
       `INSERT INTO resumes
-         (id, user_id, template_id, title, summary,
+         (id, user_id, template_id, title, summary, picture_url,
           pi_fullname, pi_role, pi_about)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         id, userId,
-        row.template_id, row.title, row.summary,
+        row.template_id, row.title, row.summary, row.picture_url,
         row.pi_fullname, row.pi_role, row.pi_about,
       ],
     );
@@ -241,12 +241,12 @@ export const update = async (id, userId, payload) => {
   await withTransaction(async (connection) => {
     await connection.execute(
       `UPDATE resumes
-          SET template_id = ?, title = ?, summary = ?,
+          SET template_id = ?, title = ?, summary = ?, picture_url = ?,
               pi_fullname = ?, pi_role = ?, pi_about = ?,
               updated_at = CURRENT_TIMESTAMP(3)
         WHERE id = ? AND user_id = ?`,
       [
-        row.template_id, row.title, row.summary,
+        row.template_id, row.title, row.summary, row.picture_url,
         row.pi_fullname, row.pi_role, row.pi_about,
         id, userId,
       ],
@@ -260,12 +260,9 @@ export const update = async (id, userId, payload) => {
 };
 
 /**
- * Stores the uploaded picture URL for a resume.
- *
- * Deliberately a separate statement from the main update: the file upload
- * endpoint is the only path that may change picture_url, so mixing it into
- * the regular save would let any save clear a photo if the client omits the
- * field.
+ * Stores an uploaded picture URL on an already-saved resume, without touching
+ * any other field. Used by POST /:id/picture; the editor instead uploads via
+ * POST /picture and sends the URL with the regular save.
  */
 export const updatePicture = async (id, userId, pictureUrl) => {
   const result = await query(

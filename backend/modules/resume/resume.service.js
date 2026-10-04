@@ -1,4 +1,5 @@
 import { AppError } from "../../shared/AppError.js";
+import { isUploadedPictureUrl, pictureUrlFor } from "../../middleware/upload.js";
 import * as resumeRepository from "./resume.repository.js";
 
 /**
@@ -17,6 +18,13 @@ import * as resumeRepository from "./resume.repository.js";
  */
 const sanitizePayload = (body = {}) => {
   const { user, _id, id, __v, createdAt, updatedAt, user_id, ...safe } = body;
+
+  // The picture arrives as a URL from the draft upload endpoint. Only accept
+  // one this server issued, so a resume cannot embed an arbitrary external
+  // image. `undefined` keeps the current one; `null` or "" removes it.
+  if (safe.pictureUrl && !isUploadedPictureUrl(safe.pictureUrl)) {
+    throw AppError.badRequest("Invalid picture URL");
+  }
   return safe;
 };
 
@@ -56,12 +64,18 @@ export const updateForUser = async (id, userId, body) => {
   return updated;
 };
 
+/**
+ * Stores a picture that is not yet attached to any resume and returns its
+ * public URL. This is what lets a brand new, unsaved resume have a photo: the
+ * editor keeps the URL in its draft and it is persisted on the next save.
+ */
+export const storeDraftPicture = (file) => pictureUrlFor(file);
+
 export const uploadPictureForUser = async (id, userId, file) => {
   if (!isPlausibleId(id)) {
     throw AppError.notFound("Resume not found");
   }
-  // Build a public URL path relative to the static root: /uploads/<filename>
-  const pictureUrl = `/uploads/${file.filename}`;
+  const pictureUrl = pictureUrlFor(file);
   const updated = await resumeRepository.updatePicture(id, userId, pictureUrl);
   if (!updated) {
     throw AppError.notFound("Resume not found");

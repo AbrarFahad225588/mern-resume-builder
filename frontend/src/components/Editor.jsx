@@ -112,22 +112,20 @@ const EditorContent = ({ id, templateParam, isNew }) => {
     }));
   }, []);
 
+  // The upload is independent of the resume, so it works on an unsaved draft.
+  // Only the returned URL goes into the draft; it is persisted on Save along
+  // with every other field.
   const handlePictureUpload = useCallback(async (file) => {
-    if (!resumeId) {
-      toast.error("Save the resume first before uploading a picture.");
-      return;
-    }
     const formData = new FormData();
     formData.append("picture", file);
     try {
-      const response = await resumeApi.uploadPicture(resumeId, formData);
-      const updated = response.data.resume;
-      setResume((prev) => ({ ...prev, pictureUrl: updated.pictureUrl }));
-      toast.success("Picture uploaded successfully");
-    } catch {
-      toast.error("Failed to upload picture.");
+      const response = await resumeApi.uploadPicture(formData);
+      setResume((prev) => ({ ...prev, pictureUrl: response.data.pictureUrl }));
+      toast.success("Picture uploaded — save to keep it.");
+    } catch (error) {
+      toast.error(error.response?.data?.message || "Failed to upload picture.");
     }
-  }, [resumeId]);
+  }, []);
 
   const handleRowChange = useCallback((section, index, field, value) => {
     setResume((prev) => ({

@@ -92,7 +92,12 @@ export const toResumeRow = (payload = {}, existing = null) => {
     template_id: str(payload.templateId ?? fallback.templateId, DEFAULT_TEMPLATE_ID),
     title: str(payload.title ?? fallback.title, DEFAULT_TITLE),
     summary: str(payload.summary ?? fallback.summary),
-    // picture_url is only set by the dedicated upload endpoint, not here
+    // Omitted keeps the current photo; null/"" removes it. The URL itself was
+    // validated by the service and points at a file the upload endpoint stored.
+    picture_url:
+      payload.pictureUrl === undefined
+        ? fallback.pictureUrl ?? null
+        : payload.pictureUrl || null,
     pi_fullname: str(personalInfo.fullname ?? fallback.personalInfo?.fullname),
     pi_role: str(personalInfo.role ?? fallback.personalInfo?.role),
     pi_about: str(personalInfo.about ?? fallback.personalInfo?.about),
